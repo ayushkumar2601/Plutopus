@@ -1,70 +1,162 @@
-from fastapi import APIRouter, Depends
+import os
+import sys
+from typing import List, Dict, Any, Optional
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
-from plutopus_shared import get_db, Site, Device, Tunnel, Interface
-from schemas.api_models import TopologyResponseSchema, TopologyNodeSchema, TopologyLinkSchema
+
+# Add topology path dynamically to allow imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../../services/topology")))
+
+from plutopus_shared import get_db
+from repository import TopologyRepository
+from intelligence import TopologyIntelligenceService
+from health import TopologyHealthEngine
+from schemas.api_models import TopologyResponseSchema
 
 router = APIRouter()
 
 @router.get("/", response_model=TopologyResponseSchema)
-def get_topology(db: Session = Depends(get_db)):
+def get_topology_legacy(db: Session = Depends(get_db)):
     """
-    Generate graph structure representing network sites, edge devices, and tunnels.
+    Legacy endpoint for basic layout schema.
     """
-    sites = db.query(Site).all()
-    devices = db.query(Device).all()
-    tunnels = db.query(Tunnel).all()
-
+    repo = TopologyRepository(db)
+    # Reuses the Graph Engine layout mapping from Phase 1
     nodes = []
     links = []
+    
+    for node_id, data in repo.engine.graph.nodes(data=True):
+        nodes.append({
+            "id": node_id,
+            "label": data.get("label", node_id),
+            "type": data.get("type", "unknown"),
+            "status": data.get("status", "up")
+        })
+        
+    for u, v, data in repo.engine.graph.edges(data=True):
+        if data.get("relation") == "INTERFACE_CONNECTED_TO":
+            links.append({
+                "id": data.get("tunnel_id", f"link-{u}-{v}"),
+                "source": u,
+                "target": v,
+                "status": data.get("status", "up")
+            })
+            
+    return {"nodes": nodes, "links": links}
 
-    # 1. Add Sites as Nodes
-    for site in sites:
-        nodes.append(
-            TopologyNodeSchema(
-                id=site.id,
-                label=site.name,
-                type=site.role,  # hub, spoke
-                status="up"
-            )
-        )
+@router.get("/graph", response_model=Dict[str, Any])
+def get_graph(db: Session = Depends(get_db)):
+    """
+    Retrieve the full compiled topology graph nodes and edge relationships.
+    """
+    repo = TopologyRepository(db)
+    nodes = []
+    edges = []
+    
+    for node_id, data in repo.engine.graph.nodes(data=True):
+        nodes.append({"id": node_id, **data})
+        
+    for u, v, data in repo.engine.graph.edges(data=True):
+        edges.append({"source": u, "target": v, **data})
+        
+    return {"nodes": nodes, "edges": edges}
 
-    # 2. Add Devices as Nodes and Link them to their parent Sites
-    for device in devices:
-        nodes.append(
-            TopologyNodeSchema(
-                id=device.id,
-                label=device.name,
-                type="device",
-                status="up"
-            )
-        )
-        links.append(
-            TopologyLinkSchema(
-                id=f"link-site-{device.site_id}-dev-{device.id}",
-                source=device.site_id,
-                target=device.id,
-                status="up"
-            )
-        )
-
-    # 3. Add Tunnels as Links between Devices
-    # To find which device a tunnel connects, we map interfaces to devices
-    intf_to_dev = {
-        intf.id: intf.device_id 
-        for intf in db.query(Interface.id, Interface.device_id).all()
+@router.get("/sites/{id}", response_model=Dict[str, Any])
+def get_site_details(id: str, db: Session = Depends(get_db)):
+    """
+    Retrieve deep topology info, health metrics, and devices for a site.
+    """
+    repo = TopologyRepository(db)
+    health_eng = TopologyHealthEngine(db)
+    
+    site = repo.get_site(id)
+    if not site:
+        raise HTTPException(status_code=404, detail="Site not found")
+        
+    devices = repo.get_site_devices(id)
+    tunnels = repo.get_site_tunnels(id)
+    status = health_eng.calculate_site_status(id)
+    
+    return {
+        "id": site.id,
+        "name": site.name,
+        "role": site.role,
+        "status": status,
+        "devices_count": len(devices),
+        "tunnels_count": len(tunnels),
+        "devices": [{"id": d.id, "name": d.name, "role": d.role, "ip": d.ip} for d in devices]
     }
 
-    for tunnel in tunnels:
-        src_dev = intf_to_dev.get(tunnel.src_interface_id)
-        dst_dev = intf_to_dev.get(tunnel.dst_interface_id)
-        if src_dev and dst_dev:
-            links.append(
-                TopologyLinkSchema(
-                    id=tunnel.id,
-                    source=src_dev,
-                    target=dst_dev,
-                    status=tunnel.status
-                )
-            )
+@router.get("/devices/{id}", response_model=Dict[str, Any])
+def get_device_details(id: str, db: Session = Depends(get_db)):
+    """
+    Retrieve interface list, parent site, and health for a device.
+    """
+    repo = TopologyRepository(db)
+    health_eng = TopologyHealthEngine(db)
+    
+    device = repo.get_device(id)
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+        
+    interfaces = repo.db.query(Interface).filter(Interface.device_id == id).all()
+    intf_details = []
+    for i in interfaces:
+        intf_status = health_eng.calculate_interface_status(i.id)
+        intf_details.append({
+            "id": i.id,
+            "name": i.name,
+            "type": i.type,
+            "status": intf_status
+        })
+        
+    return {
+        "id": device.id,
+        "name": device.name,
+        "site_id": device.site_id,
+        "role": device.role,
+        "ip": device.ip,
+        "interfaces": intf_details
+    }
 
-    return TopologyResponseSchema(nodes=nodes, links=links)
+@router.get("/path", response_model=Dict[str, Any])
+def get_path(
+    source_site: str = Query(..., description="ID of source site"),
+    destination_site: str = Query(..., description="ID of destination site"),
+    db: Session = Depends(get_db)
+):
+    """
+    Calculate topological shortest path route between sites.
+    """
+    repo = TopologyRepository(db)
+    path_data = repo.get_tunnel_path(source_site, destination_site)
+    if not path_data.get("path"):
+        raise HTTPException(status_code=404, detail="No path found between selected sites")
+    return path_data
+
+@router.get("/neighbors", response_model=List[Dict[str, Any]])
+def get_neighbors(
+    node_id: str = Query(..., description="ID of node in graph"),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieve adjacent neighbors and edge relationship links.
+    """
+    repo = TopologyRepository(db)
+    return repo.get_neighbors(node_id)
+
+@router.get("/intelligence", response_model=Dict[str, Any])
+def get_topology_intelligence(db: Session = Depends(get_db)):
+    """
+    Retrieve centrality, critical paths, and underlay overlay analysis.
+    """
+    service = TopologyIntelligenceService(db)
+    health_eng = TopologyHealthEngine(db)
+    
+    intel = service.get_system_intelligence()
+    network_health = health_eng.calculate_network_status()
+    
+    return {
+        **intel,
+        "network_health": network_health
+    }
