@@ -1,0 +1,101 @@
+version: "3.8"
+
+services:
+  # FastAPI Backend
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PROJECT_NAME=Plutopus API
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/plutopus
+    depends_on:
+      - postgres
+      - redpanda
+    networks:
+      - plutopus-network
+
+  # Next.js Dashboard
+  dashboard:
+    build:
+      context: .
+      dockerfile: apps/dashboard/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - api
+    networks:
+      - plutopus-network
+
+  # TimescaleDB (PostgreSQL)
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=plutopus
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - plutopus-network
+
+  # Qdrant Vector DB
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - plutopus-network
+
+  # Redpanda Message Broker
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:latest
+    command:
+      - redpanda start
+      - --smp 1
+      - --overprovisioned
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
+      - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18082
+      - --advertise-pandaproxy-addr internal://redpanda:8082,external://localhost:18082
+      - --schema-registry-addr 0.0.0.0:8081
+      - --rpc-addr 0.0.0.0:33145
+      - --advertise-rpc-addr redpanda:33145
+      - --mode dev-container
+    ports:
+      - "18082:18082"
+      - "19092:19092"
+      - "19644:19644"
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+    networks:
+      - plutopus-network
+
+  # Ollama Local AI Runtime
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - plutopus-network
+
+networks:
+  plutopus-network:
+    driver: bridge
+
+volumes:
+  pgdata:
+  qdrant_data:
+  redpanda_data:
+  ollama_data:
