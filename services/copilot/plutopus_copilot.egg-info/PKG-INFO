@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: plutopus-copilot
+Version: 0.1.0
+Summary: AI Copilot Engine for Plutopus
+Requires-Python: >=3.9
+Requires-Dist: sqlalchemy>=2.0.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: plutopus-schemas
+Requires-Dist: plutopus-shared
