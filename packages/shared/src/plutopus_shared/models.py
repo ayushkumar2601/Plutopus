@@ -140,3 +140,16 @@ class Incident(Base):
     source_events = Column(String, nullable=True)      # JSON-serialized list of event IDs
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    username = Column(String, nullable=False, index=True)
+    action = Column(String, nullable=False)
+    resource = Column(String, nullable=False)
+    resource_id = Column(String, nullable=True)
+    result = Column(String, nullable=False)  # success, failure
+    source_ip = Column(String, nullable=True)
