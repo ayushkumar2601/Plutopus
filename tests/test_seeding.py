@@ -22,20 +22,20 @@ def test_seeding_and_idempotency():
         # Run seeding first time
         seed_topology(db)
         
-        # Check counts
-        assert db.query(Site).count() == 4
-        assert db.query(Device).count() == 4
-        assert db.query(Interface).count() == 12
-        assert db.query(Tunnel).count() == 6
+        # Check counts (Hub + 6 spoke branches)
+        assert db.query(Site).count() == 7
+        assert db.query(Device).count() == 7
+        assert db.query(Interface).count() == 21
+        assert db.query(Tunnel).count() == 12
         
         # Run seeding second time
         seed_topology(db)
         
         # Ensure no duplicates were created
-        assert db.query(Site).count() == 4
-        assert db.query(Device).count() == 4
-        assert db.query(Interface).count() == 12
-        assert db.query(Tunnel).count() == 6
+        assert db.query(Site).count() == 7
+        assert db.query(Device).count() == 7
+        assert db.query(Interface).count() == 21
+        assert db.query(Tunnel).count() == 12
     finally:
         db.close()
         Base.metadata.drop_all(bind=engine)

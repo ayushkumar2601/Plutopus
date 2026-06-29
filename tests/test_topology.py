@@ -15,11 +15,11 @@ def test_topology_structure():
     assert "tunnels" in data
     
     sites = data["sites"]
-    assert len(sites) == 4  # Hub + 3 branches
+    assert len(sites) == 7  # Hub + 6 branches
     
     roles = [s["role"] for s in sites]
     assert "hub" in roles
     assert "spoke" in roles
     
     tunnels = data["tunnels"]
-    assert len(tunnels) == 6
+    assert len(tunnels) == 12  # 6 spoke branches * 2 tunnels = 12

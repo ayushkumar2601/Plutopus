@@ -33,18 +33,14 @@ client = TestClient(app)
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_db():
-    # Remove old test db if it exists
     if os.path.exists(DB_FILE):
         os.remove(DB_FILE)
-        
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
     seed_topology(db)
     db.close()
     yield
     Base.metadata.drop_all(bind=engine)
-    
-    # Cleanup DB file
     if os.path.exists(DB_FILE):
         try:
             os.remove(DB_FILE)
@@ -64,17 +60,17 @@ def test_api_v1_health():
 def test_api_get_sites():
     res = client.get("/api/v1/sites/")
     assert res.status_code == 200
-    assert len(res.json()) == 4
+    assert len(res.json()) == 7
 
 def test_api_get_devices():
     res = client.get("/api/v1/devices/")
     assert res.status_code == 200
-    assert len(res.json()) == 4
+    assert len(res.json()) == 7
 
 def test_api_get_tunnels():
     res = client.get("/api/v1/tunnels/")
     assert res.status_code == 200
-    assert len(res.json()) == 6
+    assert len(res.json()) == 12
 
 def test_api_get_topology():
     res = client.get("/api/v1/topology/")
@@ -82,7 +78,5 @@ def test_api_get_topology():
     data = res.json()
     assert "nodes" in data
     assert "links" in data
-    # 4 sites + 4 devices = 8 nodes
-    assert len(data["nodes"]) == 8
-    # 4 device-site links + 6 tunnels = 10 links
-    assert len(data["links"]) == 10
+    # 7 sites + 7 devices + 21 interfaces + 12 tunnels = 47 nodes
+    assert len(data["nodes"]) == 47
