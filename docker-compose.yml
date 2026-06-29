@@ -80,6 +80,17 @@ services:
     networks:
       - plutopus-network
 
+  # Initialize Redpanda Topics
+  redpanda-init:
+    image: docker.redpanda.com/redpandadata/redpanda:latest
+    entrypoint: [ "/bin/sh", "-c", "/scripts/init-redpanda.sh" ]
+    volumes:
+      - ./scripts:/scripts
+    depends_on:
+      - redpanda
+    networks:
+      - plutopus-network
+
   # Ollama Local AI Runtime
   ollama:
     image: ollama/ollama:latest
