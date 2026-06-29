@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-internal-db-traffic
+  namespace: plutopus
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: plutopus-api
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: plutopus-api
