@@ -7,6 +7,8 @@ from plutopus_shared import Base, engine
 from core.config import settings
 from api.v1.router import api_router
 
+from core.metrics import prometheus_metrics_middleware, get_metrics_report
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Automatically initialize DB tables on startup
@@ -20,6 +22,9 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan
 )
+
+# Prometheus metrics middleware
+app.middleware("http")(prometheus_metrics_middleware)
 
 # Set all CORS enabled origins
 if settings.BACKEND_CORS_ORIGINS:
@@ -35,6 +40,10 @@ if settings.BACKEND_CORS_ORIGINS:
 @app.get("/health", response_model=HealthResponse, tags=["health"])
 async def health_check() -> HealthResponse:
     return HealthResponse(status="healthy")
+
+@app.get("/metrics", tags=["observability"])
+def metrics_endpoint():
+    return get_metrics_report()
 
 # Include api_router under /api/v1
 app.include_router(api_router, prefix=settings.API_V1_STR)
