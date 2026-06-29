@@ -57,30 +57,56 @@ def generate_telemetry():
         while True:
             timestamp = datetime.utcnow().isoformat()
             
-            # Determine overall state (normal, spike, degradation)
-            # Cycle states every 30 iterations
-            state_cycle = (tick // 30) % 3
+            # Determine overall state (normal, spike, degradation, congestion, latency drift, loss burst, tunnel fail, flap)
+            # Cycle states every 20 iterations
+            state_cycle = (tick // 20) % 8
+            
+            latency_multiplier = 1.0
+            loss_multiplier = 0.05
+            util_base = 35.0
+            state_name = "NORMAL"
+            
             if state_cycle == 0:
-                # Normal state
-                latency_multiplier = 1.0
-                loss_multiplier = 0.05
-                util_base = 35.0
                 state_name = "NORMAL"
             elif state_cycle == 1:
-                # Traffic spike
+                # Traffic Surge / Spike
                 latency_multiplier = 1.2
                 loss_multiplier = 0.1
                 util_base = 85.0
-                state_name = "SPIKE"
+                state_name = "TRAFFIC_SURGE"
+            elif state_cycle == 2:
+                # Congestion
+                latency_multiplier = 1.8
+                loss_multiplier = 1.5
+                util_base = 92.0
+                state_name = "CONGESTION"
+            elif state_cycle == 3:
+                # Latency Drift
+                # Gradual latency scaling based on tick progress
+                latency_multiplier = 1.0 + ((tick % 20) * 0.3)
+                state_name = "LATENCY_DRIFT"
+            elif state_cycle == 4:
+                # Packet Loss Burst
+                loss_multiplier = 12.0
+                state_name = "PACKET_LOSS_BURST"
+            elif state_cycle == 5:
+                # Tunnel Failure simulation
+                latency_multiplier = 10.0
+                loss_multiplier = 20.0
+                state_name = "TUNNEL_FAILURE"
+            elif state_cycle == 6:
+                # Interface Flapping
+                util_base = 15.0 if (tick % 2 == 0) else 95.0
+                state_name = "INTERFACE_FLAPPING"
             else:
-                # Link degradation
+                # General Degradation
                 latency_multiplier = 4.0
                 loss_multiplier = 5.0
                 util_base = 50.0
                 state_name = "DEGRADATION"
 
-            if tick % 10 == 0:
-                print(f"[Generator] Current simulation state: {state_name}")
+            if tick % 5 == 0:
+                print(f"[Generator] Current simulation state: {state_name} (tick {tick})")
 
             # 1. Generate Metrics for Tunnels (latency, loss)
             for tun_id in TUNNELS:
