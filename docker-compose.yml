@@ -31,6 +31,21 @@ services:
     networks:
       - plutopus-network
 
+  # Telemetry Consumer Worker
+  telemetry-worker:
+    build:
+      context: .
+      dockerfile: services/telemetry/Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/plutopus
+      - REDPANDA_BROKERS=redpanda:9092
+    depends_on:
+      - postgres
+      - redpanda
+      - redpanda-init
+    networks:
+      - plutopus-network
+
   # TimescaleDB (PostgreSQL)
   postgres:
     image: timescale/timescaledb:latest-pg16
