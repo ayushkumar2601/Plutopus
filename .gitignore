@@ -1,0 +1,33 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Databases
+*.db
+*.sqlite
+
+# Next.js build and cache
+apps/dashboard/.next/
+apps/dashboard/node_modules/
+apps/dashboard/out/
+apps/dashboard/build/
+
+# IDE files
+.vscode/
+.idea/
+.DS_Store
+
+# Logs
+*.log
