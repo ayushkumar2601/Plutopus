@@ -1,4 +1,4 @@
-.PHONY: dev lint test format clean
+.PHONY: dev lint test format clean seed-topology
 
 # Spin up the entire infrastructure stack locally via Docker Compose
 dev:
@@ -26,3 +26,8 @@ format:
 test:
 	@echo "=== Running Python tests ==="
 	python3 -m pytest apps/api apps/cli packages/schemas
+
+# Seed Lab Topology
+seed-topology:
+	@echo "=== Seeding Lab Topology ==="
+	PYTHONPATH=packages/shared/src:services/topology python3 services/topology/seed.py
