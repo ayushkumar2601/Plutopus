@@ -34,6 +34,7 @@ class TopologyHealthEngine:
     def calculate_tunnel_status(self, tunnel_id: str) -> str:
         """
         Derives tunnel health from recent latency and packet loss metrics.
+        Worst-case health is returned.
         """
         tunnel = self.db.query(Tunnel).filter(Tunnel.id == tunnel_id).first()
         if not tunnel:
@@ -41,6 +42,8 @@ class TopologyHealthEngine:
 
         if tunnel.status == "down":
             return "critical"
+
+        status = "healthy"
 
         # Check packet loss
         latest_loss = self.db.query(Metric).filter(
@@ -50,9 +53,12 @@ class TopologyHealthEngine:
 
         if latest_loss:
             if latest_loss.value >= 5.0:
-                return "critical"
+                status = "critical"
             elif latest_loss.value >= 1.0:
-                return "warning"
+                status = "warning"
+
+        if status == "critical":
+            return status
 
         # Check latency
         latest_latency = self.db.query(Metric).filter(
@@ -62,11 +68,11 @@ class TopologyHealthEngine:
 
         if latest_latency:
             if latest_latency.value >= 150.0:
-                return "critical"
+                status = "critical"
             elif latest_latency.value >= 80.0:
-                return "degraded"
+                status = "degraded"
 
-        return "healthy"
+        return status
 
     def calculate_site_status(self, site_id: str) -> str:
         """
