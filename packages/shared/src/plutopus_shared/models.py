@@ -9,6 +9,7 @@ class Site(Base):
     id = Column(String, primary_key=True, index=True)
     name = Column(String, nullable=False)
     role = Column(String, nullable=False)  # hub, spoke
+    business_criticality = Column(String, nullable=False, default="medium")  # low, medium, high, mission_critical
 
     devices = relationship("Device", back_populates="site", cascade="all, delete-orphan")
 
@@ -21,6 +22,7 @@ class Device(Base):
     name = Column(String, nullable=False)
     role = Column(String, nullable=False)  # edge, core, switch
     ip = Column(String, nullable=True)
+    business_criticality = Column(String, nullable=False, default="medium")  # low, medium, high, mission_critical
 
     site = relationship("Site", back_populates="devices")
     interfaces = relationship("Interface", back_populates="device", cascade="all, delete-orphan")
@@ -120,3 +122,21 @@ class Forecast(Base):
     forecast_60m = Column(Float, nullable=False)
     confidence = Column(Float, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class Incident(Base):
+    __tablename__ = "incidents"
+
+    id = Column(String, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(String, nullable=False)
+    severity = Column(String, nullable=False, index=True)  # low, medium, high, critical
+    priority = Column(Integer, nullable=False, default=50) # 0-100 priority rating
+    status = Column(String, nullable=False, default="active")  # active, acknowledged, resolved
+    root_cause = Column(String, nullable=True)
+    confidence = Column(Float, nullable=False, default=1.0)
+    affected_entities = Column(String, nullable=True)  # JSON-serialized list of entity IDs
+    source_anomalies = Column(String, nullable=True)   # JSON-serialized list of anomaly IDs
+    source_events = Column(String, nullable=True)      # JSON-serialized list of event IDs
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

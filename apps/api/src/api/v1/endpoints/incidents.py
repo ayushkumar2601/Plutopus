@@ -7,8 +7,12 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 # Add correlation and integration paths dynamically to allow imports
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../../services/correlation")))
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../../services/integrations")))
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../../.."))
+if not os.path.exists(os.path.join(root_dir, "services")):
+    root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../.."))
+
+sys.path.insert(0, os.path.join(root_dir, "services/correlation"))
+sys.path.insert(0, os.path.join(root_dir, "services/integrations"))
 
 from plutopus_shared import get_db, Incident, Anomaly, Event, Site, Device
 from core.auth import get_current_user, RoleChecker, UserPayload
@@ -47,9 +51,9 @@ def list_incidents(
     List incident objects with pagination and filters.
     """
     q = db.query(Incident)
-    if status_filter:
+    if status_filter and isinstance(status_filter, str):
         q = q.filter(Incident.status == status_filter)
-    if severity_filter:
+    if severity_filter and isinstance(severity_filter, str):
         q = q.filter(Incident.severity == severity_filter)
         
     incidents = q.order_by(Incident.created_at.desc()).offset(offset).limit(limit).all()
@@ -117,7 +121,7 @@ def trigger_correlation_run(
             INCIDENTS_GENERATED_TOTAL.labels(severity=db_inc.severity).inc()
 
     # Re-fetch active incidents
-    return list_incidents(status_filter="active", db=db, user=user)
+    return list_incidents(status_filter="active", severity_filter=None, limit=20, offset=0, db=db, user=user)
 
 @router.get("/{incident_id}", response_model=Dict[str, Any])
 def get_incident_details(
