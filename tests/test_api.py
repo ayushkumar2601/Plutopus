@@ -5,7 +5,6 @@ from sqlalchemy.orm import sessionmaker
 import sys
 import os
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../packages/shared/src")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../apps/api/src")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../services/topology")))
 

@@ -4,7 +4,6 @@ from sqlalchemy.orm import sessionmaker
 import sys
 import os
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../packages/shared/src")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../services/topology")))
 
 from plutopus_shared.models import Site, Device, Interface, Tunnel, Base

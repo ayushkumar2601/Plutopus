@@ -14,8 +14,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../serv
 from main import app
 
 # 2. Add other paths
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../packages/shared/src")))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../services/topology")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../services/prediction")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../services/prediction/src")))
 
