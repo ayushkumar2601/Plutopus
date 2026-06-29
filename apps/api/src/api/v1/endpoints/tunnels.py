@@ -1,0 +1,19 @@
+from typing import List
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
+from plutopus_shared import get_db, Tunnel
+from schemas.api_models import TunnelSchema
+
+router = APIRouter()
+
+@router.get("/", response_model=List[TunnelSchema])
+def get_tunnels(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=1000),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieve all SD-WAN tunnels with pagination.
+    """
+    tunnels = db.query(Tunnel).offset(skip).limit(limit).all()
+    return tunnels
