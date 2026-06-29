@@ -19,4 +19,4 @@ RUN pip install --no-cache-dir -e /app/services/prediction
 
 ENV PYTHONPATH=/app/services/prediction/src
 
-CMD ["python", "/app/services/prediction/src/main.py"]
+CMD ["python", "/app/services/prediction/src/worker.py"]

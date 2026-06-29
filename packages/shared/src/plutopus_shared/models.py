@@ -81,3 +81,42 @@ class TelemetrySnapshot(Base):
     metric_count = Column(Integer, default=0)
     event_count = Column(Integer, default=0)
     healthy = Column(Boolean, default=True)
+
+
+class Anomaly(Base):
+    __tablename__ = "anomalies"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    entity_id = Column(String, nullable=False, index=True)
+    entity_type = Column(String, nullable=False)  # device, interface, tunnel
+    metric = Column(String, nullable=False)
+    severity = Column(String, nullable=False, index=True)  # info, warning, critical
+    score = Column(Float, nullable=False)
+    description = Column(String, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class RiskScore(Base):
+    __tablename__ = "risk_scores"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    entity_id = Column(String, nullable=False, index=True)
+    entity_type = Column(String, nullable=False)  # site, tunnel
+    risk_score = Column(Integer, nullable=False)  # 0-100
+    risk_level = Column(String, nullable=False, index=True)  # low, moderate, elevated, high
+    signals = Column(String, nullable=True)  # JSON serialized signals list
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class Forecast(Base):
+    __tablename__ = "forecasts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    target_id = Column(String, nullable=False, index=True)
+    metric = Column(String, nullable=False)
+    current_val = Column(Float, nullable=False)
+    forecast_15m = Column(Float, nullable=False)
+    forecast_30m = Column(Float, nullable=False)
+    forecast_60m = Column(Float, nullable=False)
+    confidence = Column(Float, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)

@@ -24,11 +24,13 @@ logger = logging.getLogger("prediction-worker")
 # 10s sleep for quick local testing/demo, 300s (5m) for production
 SLEEP_INTERVAL = int(os.getenv("PREDICTION_INTERVAL", "15"))
 
-def run_prediction_pipeline():
+def run_prediction_pipeline(db_session: Session = None):
     logger.info("Initializing prediction database structures...")
-    Base.metadata.create_all(bind=engine)
     
-    db: Session = SessionLocal()
+    db: Session = db_session if db_session is not None else SessionLocal()
+    if db_session is None:
+        Base.metadata.create_all(bind=engine)
+        
     try:
         logger.info("Starting prediction run...")
         current_time = time.time()
@@ -37,7 +39,6 @@ def run_prediction_pipeline():
         # 1. Process Interfaces (Utilization)
         interfaces = db.query(Interface).all()
         for intf in interfaces:
-            # Query recent 15 metrics
             metrics = db.query(Metric).filter(
                 Metric.target_id == intf.id,
                 Metric.name == "utilization"
@@ -84,13 +85,11 @@ def run_prediction_pipeline():
         tunnels = db.query(Tunnel).all()
         tunnel_risk_map = {}
         for tun in tunnels:
-            # Latency history
             lat_metrics = db.query(Metric).filter(
                 Metric.target_id == tun.id,
                 Metric.name == "latency"
             ).order_by(Metric.timestamp.desc()).limit(15).all()
             
-            # Loss history
             loss_metrics = db.query(Metric).filter(
                 Metric.target_id == tun.id,
                 Metric.name == "packet_loss"
@@ -117,7 +116,6 @@ def run_prediction_pipeline():
                     timestamp=now
                 ))
                 
-                # Anomaly check latency
                 anom_lat = detect_anomaly(tun.id, "tunnel", "latency", latest_lat, vals_lat[:-1])
                 if anom_lat:
                     db.add(Anomaly(
@@ -148,7 +146,6 @@ def run_prediction_pipeline():
                     timestamp=now
                 ))
                 
-                # Anomaly check loss
                 anom_loss = detect_anomaly(tun.id, "tunnel", "packet_loss", latest_loss, vals_loss[:-1])
                 if anom_loss:
                     db.add(Anomaly(
@@ -163,7 +160,6 @@ def run_prediction_pipeline():
 
             # Calculate Tunnel Risk
             status_down = (tun.status == "down")
-            # Fetch latest utilization for tunnels (mapped from its source interface)
             latest_util = 40.0
             util_m = db.query(Metric).filter(
                 Metric.target_id == tun.src_interface_id,
@@ -173,8 +169,6 @@ def run_prediction_pipeline():
                 latest_util = util_m.value
                 
             risk_data = calculate_tunnel_risk(tun.id, latest_lat, latest_loss, latest_util, status_down)
-            
-            # Expose explainability correlation weights
             explain_signals = RiskCorrelationEngine.get_contributing_signals(
                 "tunnel", risk_data["risk_score"], risk_data["signals"]
             )
@@ -193,16 +187,13 @@ def run_prediction_pipeline():
         # 3. Process Sites (Aggregate Spoke/Hub Risks)
         sites = db.query(Site).all()
         for site in sites:
-            # Map devices in site
             devices = db.query(Device).filter(Device.site_id == site.id).all()
             dev_ids = [d.id for d in devices]
             
-            # Fetch active events/alarms count
             events_count = db.query(Event).filter(
                 Event.device_id.in_(dev_ids)
             ).count()
             
-            # Terminating tunnels
             interfaces = db.query(Interface).filter(Interface.device_id.in_(dev_ids)).all()
             intf_ids = [i.id for i in interfaces]
             tunnels_site = db.query(Tunnel).filter(
@@ -212,7 +203,6 @@ def run_prediction_pipeline():
             
             site_tun_risks = [tunnel_risk_map.get(t.id, 0) for t in tunnels_site]
             
-            # Hardware warnings check
             dev_degraded = False
             for d in devices:
                 latest_dev_event = db.query(Event).filter(
@@ -224,7 +214,6 @@ def run_prediction_pipeline():
                     break
 
             site_risk = calculate_site_risk(site.id, site_tun_risks, events_count, dev_degraded)
-            
             explain_signals_site = RiskCorrelationEngine.get_contributing_signals(
                 "site", site_risk["risk_score"], site_risk["signals"]
             )
@@ -245,7 +234,8 @@ def run_prediction_pipeline():
         db.rollback()
         logger.error(f"Error in prediction runner: {e}")
     finally:
-        db.close()
+        if db_session is None:
+            db.close()
 
 def main():
     logger.info("Starting Plutopus Prediction Engine Worker...")

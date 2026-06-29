@@ -13,11 +13,14 @@ from plutopus_shared.db import get_db, Base
 from seed import seed_topology
 from main import app
 
-DB_FILE = "test_api.db"
-DATABASE_URL = f"sqlite:///{DB_FILE}"
+from sqlalchemy.pool import StaticPool
 
-# Setup local SQLite test db file
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# Setup local SQLite test db in-memory shared pool
+engine = create_engine(
+    "sqlite:///:memory:",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool
+)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Override get_db dependency
@@ -28,24 +31,18 @@ def override_get_db():
     finally:
         db.close()
 
-app.dependency_overrides[get_db] = override_get_db
 client = TestClient(app)
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_db():
-    if os.path.exists(DB_FILE):
-        os.remove(DB_FILE)
+    app.dependency_overrides[get_db] = override_get_db
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
     seed_topology(db)
     db.close()
     yield
     Base.metadata.drop_all(bind=engine)
-    if os.path.exists(DB_FILE):
-        try:
-            os.remove(DB_FILE)
-        except Exception:
-            pass
+    app.dependency_overrides.clear()
 
 def test_api_health():
     res = client.get("/health")
