@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from api.v1.endpoints import health, sites, devices, tunnels, metrics, events, topology, predictions
+from api.v1.endpoints import health, sites, devices, tunnels, metrics, events, topology, predictions, copilot
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])
@@ -10,3 +10,4 @@ api_router.include_router(metrics.router, prefix="/metrics", tags=["metrics"])
 api_router.include_router(events.router, prefix="/events", tags=["events"])
 api_router.include_router(topology.router, prefix="/topology", tags=["topology"])
 api_router.include_router(predictions.router, tags=["predictions"])
+api_router.include_router(copilot.router, prefix="/copilot", tags=["copilot"])
