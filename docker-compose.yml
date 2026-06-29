@@ -46,6 +46,19 @@ services:
     networks:
       - plutopus-network
 
+  # Prediction Analytics Worker
+  prediction-worker:
+    build:
+      context: .
+      dockerfile: services/prediction/Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/plutopus
+      - PREDICTION_INTERVAL=300
+    depends_on:
+      - postgres
+    networks:
+      - plutopus-network
+
   # TimescaleDB (PostgreSQL)
   postgres:
     image: timescale/timescaledb:latest-pg16

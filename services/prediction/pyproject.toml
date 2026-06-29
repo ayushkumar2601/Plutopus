@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "plutopus-prediction"
+version = "0.1.0"
+description = "Predictive Analytics Engine for Plutopus"
+requires-python = ">=3.9"
+dependencies = [
+    "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.9.0",
+    "pydantic>=2.0.0",
+    "plutopus-schemas",
+    "plutopus-shared"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
