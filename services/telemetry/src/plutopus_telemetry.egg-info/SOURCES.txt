@@ -1,0 +1,8 @@
+README.md
+pyproject.toml
+src/normalizers/__init__.py
+src/plutopus_telemetry.egg-info/PKG-INFO
+src/plutopus_telemetry.egg-info/SOURCES.txt
+src/plutopus_telemetry.egg-info/dependency_links.txt
+src/plutopus_telemetry.egg-info/requires.txt
+src/plutopus_telemetry.egg-info/top_level.txt

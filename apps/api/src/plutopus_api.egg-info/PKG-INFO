@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: plutopus-api
+Version: 0.1.0
+Summary: FastAPI backend for Plutopus
+Requires-Python: >=3.9
+Requires-Dist: fastapi>=0.110.0
+Requires-Dist: uvicorn>=0.28.0
+Requires-Dist: pydantic-settings>=2.2.0
+Requires-Dist: sqlalchemy>=2.0.0
+Requires-Dist: psycopg2-binary>=2.9.0
+Requires-Dist: alembic>=1.13.0
+Requires-Dist: plutopus-schemas
+Requires-Dist: plutopus-shared

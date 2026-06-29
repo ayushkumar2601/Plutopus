@@ -1,0 +1,6 @@
+kafka-python-ng>=2.2.2
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+pydantic>=2.0.0
+plutopus-schemas
+plutopus-shared
