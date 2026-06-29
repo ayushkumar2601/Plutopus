@@ -129,6 +129,20 @@ services:
     networks:
       - plutopus-network
 
+  # Copilot Worker Daemon
+  copilot-worker:
+    build:
+      context: .
+      dockerfile: services/copilot/Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/plutopus
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      - postgres
+      - ollama
+    networks:
+      - plutopus-network
+
 networks:
   plutopus-network:
     driver: bridge
