@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "plutopus-telemetry"
 version = "0.1.0"
 description = "Telemetry ingestion service for Plutopus"
-requires-python = ">=3.12"
+requires-python = ">=3.9"
 dependencies = [
     "kafka-python-ng>=2.2.2",
     "sqlalchemy>=2.0.0",
