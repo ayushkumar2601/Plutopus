@@ -17,6 +17,6 @@ RUN pip install --no-cache-dir -e /app/packages/schemas
 RUN pip install --no-cache-dir -e /app/packages/shared
 RUN pip install --no-cache-dir -e /app/services/prediction
 
-ENV PYTHONPATH=/app/services/prediction/src
+ENV PYTHONPATH=/app/services/prediction/src:/app/services/prediction
 
 CMD ["python", "/app/services/prediction/src/worker.py"]

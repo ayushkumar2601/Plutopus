@@ -3,8 +3,10 @@ FROM python:3.12-slim
 WORKDIR /app
 
 COPY packages/shared /app/packages/shared
+COPY packages/schemas /app/packages/schemas
 COPY services/copilot /app/services/copilot
 
+RUN pip install --no-cache-dir -e /app/packages/schemas
 RUN pip install --no-cache-dir -e /app/packages/shared
 RUN pip install --no-cache-dir -e /app/services/copilot
 

@@ -10,10 +10,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy packages and application
 COPY packages/schemas /app/packages/schemas
+COPY packages/shared /app/packages/shared
+COPY services/topology /app/services/topology
+COPY services/copilot /app/services/copilot
+COPY services/correlation /app/services/correlation
+COPY services/integrations /app/services/integrations
 COPY apps/api /app/apps/api
 
 # Install shared schemas package and backend API package
 RUN pip install --no-cache-dir -e /app/packages/schemas
+RUN pip install --no-cache-dir -e /app/packages/shared
 RUN pip install --no-cache-dir -e /app/apps/api
 
 EXPOSE 8000
