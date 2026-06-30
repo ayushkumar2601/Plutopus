@@ -1,6 +1,30 @@
-import React from "react";
+"use client";
+
+import React, { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    
+    const checkConnection = async () => {
+      try {
+        const res = await fetch(`${apiUrl}/api/v1/health`);
+        if (res.ok) {
+          router.push("/dashboard");
+        } else {
+          setTimeout(checkConnection, 2000);
+        }
+      } catch (error) {
+        setTimeout(checkConnection, 2000);
+      }
+    };
+    
+    const timer = setTimeout(checkConnection, 1500);
+    return () => clearTimeout(timer);
+  }, [router]);
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 flex flex-col items-center justify-center relative overflow-hidden font-sans">
       {/* Background glow effects */}
