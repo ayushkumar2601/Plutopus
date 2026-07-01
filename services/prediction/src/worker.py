@@ -3,7 +3,7 @@ import sys
 import time
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
 # Add paths dynamically
@@ -48,13 +48,16 @@ def run_prediction_pipeline(db_session: Session = None):
         current_time = time.time()
         now = datetime.utcnow()
         
+        fifteen_mins_ago = now - timedelta(minutes=15)
+        
         # 1. Process Interfaces (Utilization)
         interfaces = db.query(Interface).all()
         for intf in interfaces:
             metrics = db.query(Metric).filter(
                 Metric.target_id == intf.id,
-                Metric.name == "utilization"
-            ).order_by(Metric.timestamp.desc()).limit(15).all()
+                Metric.name == "utilization",
+                Metric.timestamp >= fifteen_mins_ago
+            ).order_by(Metric.timestamp.desc()).all()
             
             if not metrics:
                 continue
@@ -104,13 +107,15 @@ def run_prediction_pipeline(db_session: Session = None):
         for tun in tunnels:
             lat_metrics = db.query(Metric).filter(
                 Metric.target_id == tun.id,
-                Metric.name == "latency"
-            ).order_by(Metric.timestamp.desc()).limit(15).all()
+                Metric.name == "latency",
+                Metric.timestamp >= fifteen_mins_ago
+            ).order_by(Metric.timestamp.desc()).all()
             
             loss_metrics = db.query(Metric).filter(
                 Metric.target_id == tun.id,
-                Metric.name == "packet_loss"
-            ).order_by(Metric.timestamp.desc()).limit(15).all()
+                Metric.name == "packet_loss",
+                Metric.timestamp >= fifteen_mins_ago
+            ).order_by(Metric.timestamp.desc()).all()
 
             latest_lat = 15.0
             latest_loss = 0.0
