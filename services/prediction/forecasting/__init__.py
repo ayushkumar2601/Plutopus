@@ -109,18 +109,37 @@ def forecast_metric(metric_name: str, historical_values: List[float], historical
     logger = logging.getLogger("prediction-worker")
     logger.info(f"DIAGNOSTIC: metric={metric_name}, cur_raw={current_raw:.2f}, cur_ema={current_smoothed:.2f}, slope={trend_slope:.4f}, delta15={delta_15:.4f}, f15={f15:.4f}")
     
-    confidence = 0.85
-    if len(historical_values) >= 5:
-        mean = sum(historical_values) / len(historical_values)
-        variance = sum((v - mean) ** 2 for v in historical_values) / len(historical_values)
-        if variance > 100.0 or time_span < 60.0:
-            confidence = 0.65
-            
+    # Phase 4: Quantitative Confidence Scoring
+    # Base calculation using sample size, historical coverage, and variance
+    n = len(historical_values)
+    
+    # 1. Sample Size Score (ideal >= 60 samples)
+    size_score = min(n / 60.0, 1.0)
+    
+    # 2. Coverage Score (ideal >= 900s or 15m)
+    coverage_score = min(time_span / 900.0, 1.0)
+    
+    # 3. Variance Score (lower variance = higher confidence)
+    if n > 1:
+        mean = sum(historical_values) / n
+        variance = sum((v - mean) ** 2 for v in historical_values) / n
+        var_score = 1.0 / (1.0 + (variance / 100.0))
+    else:
+        var_score = 0.0
+        
+    # 4. Horizon Penalty (Since this DB schema stores a single confidence for all horizons,
+    # we penalize the overall confidence based on the furthest projection: 60m)
+    horizon_penalty = 0.85
+    
+    # Final mathematical confidence
+    confidence = ((0.4 * size_score) + (0.4 * coverage_score) + (0.2 * var_score)) * horizon_penalty
+    confidence = max(min(confidence, 1.0), 0.0)
+    
     return {
         "current": round(current_raw, 2),
         "forecast_15m": round(f15, 2),
         "forecast_30m": round(f30, 2),
         "forecast_60m": round(f60, 2),
-        "confidence": confidence
+        "confidence": round(confidence, 2)
     }
 
