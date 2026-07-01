@@ -91,21 +91,42 @@ def setup_db():
     Base.metadata.drop_all(bind=engine)
     app.dependency_overrides.clear()
 
-def test_forecasting_logic():
-    # Linear fit test
-    x = [1.0, 2.0, 3.0, 4.0, 5.0]
-    y = [10.0, 20.0, 30.0, 40.0, 50.0]
-    alpha, beta = fit_linear_trend(x, y)
-    assert beta == 10.0
-    assert alpha == 0.0
+def test_forecasting_logic_stable():
+    # Stable Inputs test
+    hist_vals = [50.0, 50.0, 50.0, 50.0, 50.0]
+    hist_times = [1000.0, 1001.0, 1002.0, 1003.0, 1004.0]
+    res = forecast_metric("utilization", hist_vals, hist_times, 2000.0)
+    assert res["current"] == 50.0
+    assert res["forecast_15m"] == 50.0
 
-    # Projection test
-    hist_vals = [50.0, 55.0, 60.0]
-    hist_times = [1000.0, 2000.0, 3000.0]
-    res = forecast_metric("utilization", hist_vals, hist_times, 3000.0)
-    assert res["current"] == 60.0
-    assert res["forecast_15m"] > 60.0
-    assert res["confidence"] == 0.85
+def test_forecasting_logic_rising_bounded():
+    # Rising trend that should be bounded
+    hist_vals = [30.0, 35.0, 40.0, 45.0, 50.0]
+    hist_times = [1000.0, 1001.0, 1002.0, 1003.0, 1004.0]
+    # slope = 5 per sec. Raw f15 = 50 + 5 * 900 = 4550.
+    # Utilization max_increase_15 = 30.0. So capped f15 = 50 + 30 = 80.
+    res = forecast_metric("utilization", hist_vals, hist_times, 2000.0)
+    assert res["current"] == 50.0
+    assert res["forecast_15m"] == 80.0
+    assert res["forecast_60m"] == 100.0 # maxes out at 100 eventually
+
+def test_forecasting_logic_falling_bounded():
+    # Falling trend
+    hist_vals = [50.0, 45.0, 40.0, 35.0, 30.0]
+    hist_times = [1000.0, 1001.0, 1002.0, 1003.0, 1004.0]
+    res = forecast_metric("utilization", hist_vals, hist_times, 2000.0)
+    assert res["current"] == 30.0
+    assert res["forecast_15m"] == 0.0 # 30 - 30 = 0.0
+
+def test_forecasting_logic_outlier_spike():
+    # Outlier Spike in Latency
+    hist_vals = [10.0, 10.0, 10.0, 10.0, 150.0]
+    hist_times = [1000.0, 1001.0, 1002.0, 1003.0, 1004.0]
+    res = forecast_metric("latency", hist_vals, hist_times, 2000.0)
+    assert res["current"] == 150.0
+    # slope = positive. Max increase 15m for latency is 50% = 75.0. 
+    # So capped f15 = 150 + 75 = 225.0, rather than exploding.
+    assert res["forecast_15m"] <= 225.0
 
 def test_anomaly_detection_logic():
     # Normal state check
