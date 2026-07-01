@@ -27,28 +27,53 @@ def fit_linear_trend(x: List[float], y: List[float]) -> Tuple[float, float]:
     alpha = mean_y - beta * mean_x
     return alpha, beta
 
+def calculate_ema(values: List[float], alpha: float = 0.2) -> List[float]:
+    if not values:
+        return []
+    ema = [values[0]]
+    for v in values[1:]:
+        ema.append(alpha * v + (1 - alpha) * ema[-1])
+    return ema
+
 def forecast_metric(metric_name: str, historical_values: List[float], historical_times: List[float], current_time: float) -> Dict[str, float]:
     """
-    Forecasts a metric value at +15m, +30m, and +60m using trend-limited forecasting.
-    Returns a dictionary of current and forecasted values.
+    Forecasts a metric value using EMA smoothing and horizon-aware trend dampening.
     """
     if not historical_values:
         return {"current": 0.0, "forecast_15m": 0.0, "forecast_30m": 0.0, "forecast_60m": 0.0, "confidence": 0.5}
         
-    current = historical_values[-1]
+    current_raw = historical_values[-1]
     base_time = historical_times[-1]
-    
     time_span = historical_times[-1] - historical_times[0] if len(historical_times) > 1 else 0.0
     
-    # Normalize timestamps to relative seconds to avoid magnitude leakage
+    # Phase 2: EMA Smoothing
+    # Apply EMA to smooth out short-term spikes
+    alpha_ema = 0.2
+    ema_values = calculate_ema(historical_values, alpha=alpha_ema)
+    current_smoothed = ema_values[-1]
+    
+    # Normalize timestamps to relative seconds
     normalized_times = [t - base_time for t in historical_times]
-    alpha, beta = fit_linear_trend(normalized_times, historical_values)
+    
+    # Extract trend from EMA series
+    trend_intercept, trend_slope = fit_linear_trend(normalized_times, ema_values)
+    
+    # Phase 3: Multi-Horizon Trend Forecasting
+    # Horizon-aware dampening (trend decays over time)
+    # 15m dampening: 0.8, 30m dampening: 0.5, 60m dampening: 0.2
+    damp_15 = 0.8
+    damp_30 = 0.5
+    damp_60 = 0.2
+    
+    raw_delta_15 = trend_slope * 900 * damp_15
+    raw_delta_30 = trend_slope * 1800 * damp_30
+    raw_delta_60 = trend_slope * 3600 * damp_60
     
     if metric_name == "latency":
-        max_increase_15 = current * 0.50
-        max_increase_30 = current * 1.00
-        max_increase_60 = current * 2.00
-        max_decrease = current * 0.50
+        max_increase_15 = current_smoothed * 0.50
+        max_increase_30 = current_smoothed * 1.00
+        max_increase_60 = current_smoothed * 2.00
+        max_decrease = current_smoothed * 0.50
         min_val = 0.0
         max_val = 5000.0
     elif metric_name == "utilization":
@@ -66,16 +91,15 @@ def forecast_metric(metric_name: str, historical_values: List[float], historical
         min_val = 0.0
         max_val = 100.0
         
-    # Evaluate at relative future intervals and cap the absolute jump
-    delta_15 = max(min(beta * 900, max_increase_15), -max_decrease)
-    delta_30 = max(min(beta * 1800, max_increase_30), -max_decrease * 1.5)
-    delta_60 = max(min(beta * 3600, max_increase_60), -max_decrease * 2.0)
+    delta_15 = max(min(raw_delta_15, max_increase_15), -max_decrease)
+    delta_30 = max(min(raw_delta_30, max_increase_30), -max_decrease * 1.5)
+    delta_60 = max(min(raw_delta_60, max_increase_60), -max_decrease * 2.0)
     
-    f15_raw = current + delta_15
-    f30_raw = current + delta_30
-    f60_raw = current + delta_60
+    # Forecasts based on smoothed current level
+    f15_raw = current_smoothed + delta_15
+    f30_raw = current_smoothed + delta_30
+    f60_raw = current_smoothed + delta_60
     
-    # Cap values based on physical bounds
     f15 = max(min_val, min(max_val, f15_raw))
     f30 = max(min_val, min(max_val, f30_raw))
     f60 = max(min_val, min(max_val, f60_raw))
@@ -83,9 +107,8 @@ def forecast_metric(metric_name: str, historical_values: List[float], historical
     # Diagnostic Log
     import logging
     logger = logging.getLogger("prediction-worker")
-    logger.info(f"DIAGNOSTIC: metric={metric_name}, current={current:.2f}, window={time_span:.1f}s, slope={beta:.4f}, raw_delta={beta*900:.4f}, delta15={delta_15:.4f}, f15_capped={f15:.4f}")
+    logger.info(f"DIAGNOSTIC: metric={metric_name}, cur_raw={current_raw:.2f}, cur_ema={current_smoothed:.2f}, slope={trend_slope:.4f}, delta15={delta_15:.4f}, f15={f15:.4f}")
     
-    # Calculate confidence
     confidence = 0.85
     if len(historical_values) >= 5:
         mean = sum(historical_values) / len(historical_values)
@@ -94,7 +117,7 @@ def forecast_metric(metric_name: str, historical_values: List[float], historical
             confidence = 0.65
             
     return {
-        "current": round(current, 2),
+        "current": round(current_raw, 2),
         "forecast_15m": round(f15, 2),
         "forecast_30m": round(f30, 2),
         "forecast_60m": round(f60, 2),
