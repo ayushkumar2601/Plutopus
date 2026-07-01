@@ -48,7 +48,11 @@ def run_prediction_pipeline(db_session: Session = None):
         current_time = time.time()
         now = datetime.utcnow()
         
-        fifteen_mins_ago = now - timedelta(minutes=15)
+        # Get the latest metric timestamp to make 15m relative
+        from sqlalchemy import func
+        latest_ts = db.query(func.max(Metric.timestamp)).scalar()
+        base_ts = latest_ts if latest_ts else now
+        fifteen_mins_ago = base_ts - timedelta(minutes=15)
         
         # 1. Process Interfaces (Utilization)
         interfaces = db.query(Interface).all()
