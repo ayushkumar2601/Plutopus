@@ -43,9 +43,24 @@ def forecast_metric(metric_name: str, historical_values: List[float], historical
     alpha, beta = fit_linear_trend(normalized_times, historical_values)
     
     # Evaluate at relative future intervals
-    f15 = alpha + beta * 900
-    f30 = alpha + beta * 1800
-    f60 = alpha + beta * 3600
+    f15_raw = alpha + beta * 900
+    f30_raw = alpha + beta * 1800
+    f60_raw = alpha + beta * 3600
+    
+    # Cap values based on physical bounds
+    min_val = 0.0
+    max_val = 5000.0  # safe max for latency
+    if metric_name in ("utilization", "packet_loss"):
+        max_val = 100.0
+        
+    f15 = max(min_val, min(max_val, f15_raw))
+    f30 = max(min_val, min(max_val, f30_raw))
+    f60 = max(min_val, min(max_val, f60_raw))
+    
+    # Diagnostic Log
+    import logging
+    logger = logging.getLogger("prediction-worker")
+    logger.info(f"DIAGNOSTIC: metric={metric_name}, current={current}, slope={beta:.4f}, intercept={alpha:.4f}, f15_raw={f15_raw:.4f}, f15_capped={f15:.4f}, f30={f30:.4f}, f60={f60:.4f}")
     
     # Calculate confidence
     confidence = 0.85
@@ -62,3 +77,4 @@ def forecast_metric(metric_name: str, historical_values: List[float], historical
         "forecast_60m": round(f60, 2),
         "confidence": confidence
     }
+
