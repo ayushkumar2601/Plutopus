@@ -102,7 +102,7 @@ def test_forecasting_logic():
     # Projection test
     hist_vals = [50.0, 55.0, 60.0]
     hist_times = [1000.0, 2000.0, 3000.0]
-    res = forecast_metric(hist_vals, hist_times, 3000.0)
+    res = forecast_metric("utilization", hist_vals, hist_times, 3000.0)
     assert res["current"] == 60.0
     assert res["forecast_15m"] > 60.0
     assert res["confidence"] == 0.85

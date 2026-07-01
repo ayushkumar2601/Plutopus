@@ -24,6 +24,18 @@ logger = logging.getLogger("prediction-worker")
 # 10s sleep for quick local testing/demo, 300s (5m) for production
 SLEEP_INTERVAL = int(os.getenv("PREDICTION_INTERVAL", "15"))
 
+def is_valid_forecast(metric: str, f_data: dict) -> bool:
+    for k in ["current", "forecast_15m", "forecast_30m", "forecast_60m"]:
+        val = f_data.get(k, 0.0)
+        if metric in ("utilization", "packet_loss"):
+            if val < 0.0 or val > 100.0:
+                return False
+        elif metric == "latency":
+            if val < 0.0 or val > 5000.0:
+                return False
+    return True
+
+
 def run_prediction_pipeline(db_session: Session = None):
     logger.info("Initializing prediction database structures...")
     
@@ -52,18 +64,23 @@ def run_prediction_pipeline(db_session: Session = None):
             times = [m.timestamp.timestamp() for m in metrics]
             
             # Forecast
-            f_data = forecast_metric(vals, times, current_time)
-            forecast = Forecast(
-                target_id=intf.id,
-                metric="utilization",
-                current_val=f_data["current"],
-                forecast_15m=f_data["forecast_15m"],
-                forecast_30m=f_data["forecast_30m"],
-                forecast_60m=f_data["forecast_60m"],
-                confidence=f_data["confidence"],
-                timestamp=now
-            )
-            db.add(forecast)
+            f_data = forecast_metric("utilization", vals, times, current_time)
+            
+            if not is_valid_forecast("utilization", f_data):
+                logger.warning(f"Invalid forecast for utilization on interface {intf.id}: {f_data}. Rejecting.")
+            else:
+                forecast = Forecast(
+                    target_id=intf.id,
+                    metric="utilization",
+                    current_val=f_data["current"],
+                    forecast_15m=f_data["forecast_15m"],
+                    forecast_30m=f_data["forecast_30m"],
+                    forecast_60m=f_data["forecast_60m"],
+                    confidence=f_data["confidence"],
+                    timestamp=now
+                )
+                db.add(forecast)
+
             
             # Anomaly check
             latest_val = vals[-1]
@@ -104,17 +121,22 @@ def run_prediction_pipeline(db_session: Session = None):
                 times_lat = [m.timestamp.timestamp() for m in lat_metrics]
                 latest_lat = vals_lat[-1]
                 
-                f_lat = forecast_metric(vals_lat, times_lat, current_time)
-                db.add(Forecast(
-                    target_id=tun.id,
-                    metric="latency",
-                    current_val=f_lat["current"],
-                    forecast_15m=f_lat["forecast_15m"],
-                    forecast_30m=f_lat["forecast_30m"],
-                    forecast_60m=f_lat["forecast_60m"],
-                    confidence=f_lat["confidence"],
-                    timestamp=now
-                ))
+                f_lat = forecast_metric("latency", vals_lat, times_lat, current_time)
+                
+                if not is_valid_forecast("latency", f_lat):
+                    logger.warning(f"Invalid forecast for latency on tunnel {tun.id}: {f_lat}. Rejecting.")
+                else:
+                    db.add(Forecast(
+                        target_id=tun.id,
+                        metric="latency",
+                        current_val=f_lat["current"],
+                        forecast_15m=f_lat["forecast_15m"],
+                        forecast_30m=f_lat["forecast_30m"],
+                        forecast_60m=f_lat["forecast_60m"],
+                        confidence=f_lat["confidence"],
+                        timestamp=now
+                    ))
+
                 
                 anom_lat = detect_anomaly(tun.id, "tunnel", "latency", latest_lat, vals_lat[:-1])
                 if anom_lat:
@@ -134,17 +156,22 @@ def run_prediction_pipeline(db_session: Session = None):
                 times_loss = [m.timestamp.timestamp() for m in loss_metrics]
                 latest_loss = vals_loss[-1]
                 
-                f_loss = forecast_metric(vals_loss, times_loss, current_time)
-                db.add(Forecast(
-                    target_id=tun.id,
-                    metric="packet_loss",
-                    current_val=f_loss["current"],
-                    forecast_15m=f_loss["forecast_15m"],
-                    forecast_30m=f_loss["forecast_30m"],
-                    forecast_60m=f_loss["forecast_60m"],
-                    confidence=f_loss["confidence"],
-                    timestamp=now
-                ))
+                f_loss = forecast_metric("packet_loss", vals_loss, times_loss, current_time)
+                
+                if not is_valid_forecast("packet_loss", f_loss):
+                    logger.warning(f"Invalid forecast for packet_loss on tunnel {tun.id}: {f_loss}. Rejecting.")
+                else:
+                    db.add(Forecast(
+                        target_id=tun.id,
+                        metric="packet_loss",
+                        current_val=f_loss["current"],
+                        forecast_15m=f_loss["forecast_15m"],
+                        forecast_30m=f_loss["forecast_30m"],
+                        forecast_60m=f_loss["forecast_60m"],
+                        confidence=f_loss["confidence"],
+                        timestamp=now
+                    ))
+
                 
                 anom_loss = detect_anomaly(tun.id, "tunnel", "packet_loss", latest_loss, vals_loss[:-1])
                 if anom_loss:

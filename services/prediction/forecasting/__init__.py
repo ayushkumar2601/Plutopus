@@ -27,7 +27,7 @@ def fit_linear_trend(x: List[float], y: List[float]) -> Tuple[float, float]:
     alpha = mean_y - beta * mean_x
     return alpha, beta
 
-def forecast_metric(historical_values: List[float], historical_times: List[float], current_time: float) -> Dict[str, float]:
+def forecast_metric(metric_name: str, historical_values: List[float], historical_times: List[float], current_time: float) -> Dict[str, float]:
     """
     Forecasts a metric value at +15m, +30m, and +60m.
     Returns a dictionary of current and forecasted values.
@@ -36,21 +36,20 @@ def forecast_metric(historical_values: List[float], historical_times: List[float
         return {"current": 0.0, "forecast_15m": 0.0, "forecast_30m": 0.0, "forecast_60m": 0.0, "confidence": 0.5}
         
     current = historical_values[-1]
+    base_time = historical_times[-1]
     
-    alpha, beta = fit_linear_trend(historical_times, historical_values)
+    # Normalize timestamps to relative seconds to avoid magnitude leakage
+    normalized_times = [t - base_time for t in historical_times]
+    alpha, beta = fit_linear_trend(normalized_times, historical_values)
     
-    # 15m = 900s, 30m = 1800s, 60m = 3600s
-    f15 = max(0.0, alpha + beta * (current_time + 900))
-    f30 = max(0.0, alpha + beta * (current_time + 1800))
-    f60 = max(0.0, alpha + beta * (current_time + 3600))
+    # Evaluate at relative future intervals
+    f15 = alpha + beta * 900
+    f30 = alpha + beta * 1800
+    f60 = alpha + beta * 3600
     
-    # If metric is utilization, cap it at 100%
-    # (or let it exceed if desired, but clamping is more realistic)
-    
-    # Calculate confidence based on variance/deviation (or constant for simplicity)
+    # Calculate confidence
     confidence = 0.85
     if len(historical_values) >= 5:
-        # Standard deviation can lower confidence if data is highly scattered
         mean = sum(historical_values) / len(historical_values)
         variance = sum((v - mean) ** 2 for v in historical_values) / len(historical_values)
         if variance > 100.0:
