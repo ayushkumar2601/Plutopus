@@ -2459,7 +2459,18 @@ Before deploying Plutopus to production enclaves, verify the following checklist
   - Backup validation script `validate.sh` and security auditing utility `audit.sh`.
   - Deployment configuration charts and resource matrices.
 - **Lessons Learned**: Automating database backup validations before upgrades prevents data corruption and ensures reliable disaster recovery.
-- **Outcomes**: A feature-complete, security-hardened, and air-gap-ready Version 1.0 platform.
+- **Outcomes**: A feature-complete, security-hardened, and air-gap-ready platform.
+
+### 27.7 Phase 7 — Multi-Horizon Predictive Intelligence & Quantitative Confidence (v1.1)
+- **Goals**: Eliminate linear trend runaway, filter telemetry jitter, and introduce mathematical confidence scoring.
+- **Implemented Features**:
+  - **EMA Pre-filtering**: Introduced $\alpha = 0.2$ Exponential Moving Average to smooth raw telemetry spikes before trend fitting.
+  - **Relative History Normalization**: Normalized time progression relative to the latest observation window ($t_{\text{rel}} = t_i - t_{\text{base}}$).
+  - **Horizon-Aware Dampening**: Implemented progressive trend decay factors ($0.8$ for 15m, $0.5$ for 30m, $0.2$ for 60m) and strict metric boundary clamping.
+  - **Quantitative Confidence Formulation**: Derived deterministic confidence scores from sample volume ($S_{\text{size}}$), time window continuity ($S_{\text{coverage}}$), telemetry variance ($S_{\text{variance}}$), and horizon penalty ($\gamma_{\text{horizon}} = 0.85$).
+  - **Forecasting Validation Suite**: Added `tests/test_forecast_v2.py` verifying mathematical stability and boundary assertions.
+- **Lessons Learned**: Pure unbounded linear regression risks extreme outliers during sudden circuit recovery; multi-horizon dampening combined with EMA ensures rock-solid operational predictions.
+- **Outcomes**: Enterprise-grade predictive forecasting with quantitative, defensible confidence metrics.
 
 ---
 
@@ -2496,19 +2507,19 @@ The following future architectural enhancements are designed to build upon the e
 ## 30. Final Platform Summary
 
 ### What Plutopus Is
-Plutopus is a **feature-complete, production-ready, Version 1.0 AI-native Network Operations Intelligence Platform** designed for enterprise WAN infrastructure. It bridges the gap between raw telemetry collection and natural language operational intelligence.
+Plutopus is a **feature-complete, production-ready, Version 1.1 AI-native Network Operations Intelligence Platform** designed for enterprise WAN infrastructure. It bridges the gap between raw telemetry collection and natural language operational intelligence.
 
 ### Core Capabilities
 
 - **Pipeline**: Processes SNMP telemetry from collection points through Redpanda to TimescaleDB in under 1.0 second.
 - **Graph Topology**: Represents WAN relationships using a NetworkX DiGraph, enabling Dijkstra shortest path traversal.
-- **Predictive ML**: Runs pure Python trend calculations to predict threshold violations 15, 30, and 60 minutes ahead.
+- **Predictive ML**: Runs dual-engine EMA smoothing and trend calculations with horizon-aware dampening to predict threshold violations 15, 30, and 60 minutes ahead with quantitative confidence scoring.
 - **Incident Correlation**: Groups related anomalies to identify root causes and assign weighted priority scores.
-- **Secure AI Copilot**: ground responses in local database context and troubleshooting runbooks with local Ollama model execution.
+- **Secure AI Copilot**: Grounds responses in local database context and troubleshooting runbooks with local Ollama model execution and sub-5ms deterministic fallback.
 - **Hardened Security**: HS256 JWT, zero-downtime key rotation, compliance-ready key strength checks, and immutable audit logging.
-- **Air-Gap Ready**: Packages all dependencies, container images, and model weights into a single tar archive for offline execution.
+- **Air-Gap Ready**: Packages all dependencies, container images, and model weights into a single tar archive with SHA256 manifests for offline execution.
 
 ### Current Maturity & Next Steps
-Version 1.0 is feature-complete, validated, and operationally documented. The platform is ready for pilot deployment, proof-of-concept testing, and production use in security-restricted WAN enclaves. Operators can deploy the system immediately via Docker Compose or Kubernetes Helm charts.
+Version 1.1 is feature-complete, validated, and operationally documented. The platform is ready for pilot deployment, proof-of-concept testing, and production use in security-restricted WAN enclaves. Operators can deploy the system immediately via Docker Compose or Kubernetes Helm charts.
 
 ---
