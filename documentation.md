@@ -1,11 +1,11 @@
 # Plutopus Platform Bible
-### The Definitive Technical Reference — Version 1.0
+### The Definitive Technical Reference — Version 1.1
 
 ---
 
-> **Document Status**: Canonical · Version 1.0.0 · Built from complete repository audit
+> **Document Status**: Canonical · Version 1.1.0 · Multi-Horizon Predictive Intelligence Release
 > **Audience**: Engineers · Operators · Architects · Security Reviewers · Future Contributors
-> **Last Updated**: 2026-06-30
+> **Last Updated**: 2026-10-30
 
 ---
 
@@ -48,20 +48,20 @@
 
 ### What Is Plutopus?
 
-Plutopus is an **AI-powered, self-hosted, air-gap-ready Network Operations Intelligence Platform** purpose-built for SD-WAN and MPLS enterprise networks. It is a complete, end-to-end system that ingests live network telemetry, builds a real-time topology model of every site, device, interface, and tunnel in the network, applies predictive analytics to forecast degradation up to 60 minutes ahead, correlates anomalies into actionable incidents using topology context, and provides a natural language AI Copilot that can answer complex network diagnostic questions grounded entirely in live platform data.
+Plutopus is the world's first **AI-native, air-gap ready predictive Network Operations Center (NOC) Copilot** purpose-built for enterprise SD-WAN and MPLS environments. It transitions mission-critical operations from reactive firefighting to proactive prevention by uniting telemetry ingestion, real-time graph topology awareness, dual-engine predictive analytics, topology-driven root-cause correlation, and an air-gapped local AI copilot grounded strictly in live platform telemetry.
 
 ### Why It Was Built
 
-Traditional Network Operations Centers (NOCs) operate reactively. An outage begins, alarms fire, operators scramble to correlate alerts from disparate monitoring systems, manually trace through topology diagrams, and eventually identify the root cause — often 30 to 90 minutes after the problem began. This model is fundamentally broken for modern enterprise SD-WAN and MPLS networks where thousands of tunnel paths, dozens of sites, and complex underlay/overlay relationships create immense diagnostic complexity.
+Traditional Network Operations Centers (NOCs) operate reactively. An outage begins, alarms fire, operators scramble to correlate alerts from disparate monitoring systems, manually trace through topology diagrams, and eventually identify the root cause — often 30 to 90 minutes after the problem began. In modern enterprise SD-WAN and MPLS architectures, overlay tunnels frequently decouple from underlay physical transport, creating catastrophic visibility gaps.
 
 | Problem | Impact | Plutopus Solution |
 |---------|--------|-------------------|
-| Reactive alerting | Outages diagnosed after they begin | Forecasting 15m / 30m / 60m ahead using linear trend models |
-| Alert fatigue | Hundreds of individual alarms per incident | Topology-aware correlation groups anomalies into single incidents |
-| No topology context | Root cause unclear without network map | NetworkX graph model: sites to devices to interfaces to tunnels |
-| Manual investigation | MTTR measured in hours | AI Copilot answers diagnostic questions in seconds |
-| Vendor AI dependency | Cloud LLMs leak sensitive topology data | Fully local Ollama LLM runtime, zero external calls |
-| Air-gap compliance | Enterprise networks cannot reach internet | Complete offline bundle with models, runbooks, and images |
+| Reactive alerting | Outages diagnosed after service degradation | Dual-engine forecasting (EMA smoothing + Linear Trend) 15m / 30m / 60m ahead |
+| Alert fatigue | Thousands of cascading alarms per transport flap | Topology-aware correlation groups anomalies into single actionable incidents |
+| Visibility blind spots | Overlay tunnel health decoupled from underlay | NetworkX multi-layer graph model: sites to devices to interfaces to tunnels |
+| Manual root cause triage | MTTR measured in hours under high SLA pressure | Automated topological RCA (e.g. Hub Congestion vs. Local Site Isolation) |
+| Vendor AI data leakage | Cloud LLMs exfiltrate sensitive network topology | 100% air-gapped local Ollama runtime with zero-hallucination fallback |
+| Air-gap deployment toil | Secure networks lack internet & package repositories | Self-contained offline distribution bundle with SHA256 integrity verification |
 
 ### Target Environments
 
