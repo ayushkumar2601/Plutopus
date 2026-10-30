@@ -1665,11 +1665,31 @@ The Prediction Engine employs a dual-stage forecasting algorithm designed for hi
 - `forecast_60m` = $\max(0.0, \alpha + \beta \cdot (t_{\text{current}} + 3600))$
 - If the metric is `utilization`, the forecasted value is capped at $100.0$.
 
-### 12.2 Confidence Scoring
+### 12.2 Quantitative Confidence Scoring (Phase 4 Specification)
 
-The forecasting engine assigns a confidence score to each projection based on the historical variance of the telemetry data:
-- **Baseline**: Starts at `0.85`.
-- **Variance Penalty**: If the past 5 or more points have a variance $> 100.0$ (indicating high telemetry jitter or noise), the confidence score is downgraded to `0.65`.
+The forecasting engine calculates a deterministic, quantitative confidence score $C \in [0.0, 1.0]$ based on four rigorous mathematical dimensions:
+
+$$C = \left( 0.4 \cdot S_{\text{size}} + 0.4 \cdot S_{\text{coverage}} + 0.2 \cdot S_{\text{variance}} \right) \times \gamma_{\text{horizon}}$$
+
+Where:
+1. **Sample Size Score ($S_{\text{size}}$)**:
+   Measures sample volume relative to the minimum ideal threshold of 60 metric samples:
+   $$S_{\text{size}} = \min\left(\frac{N}{60.0}, 1.0\right)$$
+   Where $N$ is the number of historical metric observations.
+
+2. **Temporal Coverage Score ($S_{\text{coverage}}$)**:
+   Evaluates the continuity of the historical observation window relative to a 15-minute ($900\text{s}$) baseline:
+   $$S_{\text{coverage}} = \min\left(\frac{t_{\text{latest}} - t_{\text{earliest}}}{900.0}, 1.0\right)$$
+
+3. **Variance Invariance Score ($S_{\text{variance}}$)**:
+   Rewards stable signal progression and penalizes excessive jitter/noise using a sigmoid-like reciprocal scaling:
+   $$S_{\text{variance}} = \begin{cases} \frac{1.0}{1.0 + (\sigma^2 / 100.0)} & \text{if } N > 1 \\ 0.0 & \text{if } N \le 1 \end{cases}$$
+   Where $\sigma^2 = \frac{1}{N}\sum_{i=1}^N (y_i - \bar{y})^2$.
+
+4. **Long-Horizon Attenuation ($\gamma_{\text{horizon}}$)**:
+   Since the database hypertable schema preserves a single unified confidence value across all projection windows, the score applies an attenuation penalty ($\gamma_{\text{horizon}} = 0.85$) governed by the furthest projection frontier ($+60\text{m}$).
+
+The final result is clamped strictly between $0.0$ and $1.0$ and rounded to two decimal places.
 
 ### 12.3 Risk Calculations
 
