@@ -610,16 +610,16 @@ graph TD
 ```mermaid
 flowchart TD
     A["Prediction Worker Wakes\n(every PREDICTION_INTERVAL seconds)"] --> B["Query all Interfaces from DB"]
-    B --> C["For each Interface:\nGet last 15 utilization metrics"]
-    C --> D["forecast_metric()\nLinear regression to +15m +30m +60m"]
+    B --> C["For each Interface:\nFetch rolling metric history"]
+    C --> D["forecast_metric()\n1. calculate_ema(alpha=0.2)\n2. fit_linear_trend(normalized_times)\n3. Dampen 15m/30m/60m + boundary clamp\n4. Quantitative confidence scoring"]
     D --> E["Write Forecast to DB"]
     E --> F["detect_anomaly()\nZ-score vs historical baseline"]
     F --> G{"Z-score >= 2.5?"}
     G -->|"Yes"| H["Write Anomaly to DB\n(warning z>=2.5, critical z>=4.0)"]
     G -->|"No"| I["No anomaly, skip"]
     A --> J["Query all Tunnels from DB"]
-    J --> K["For each Tunnel:\nGet last 15 latency + loss metrics"]
-    K --> L["forecast_metric()\nfor latency and packet_loss"]
+    J --> K["For each Tunnel:\nFetch latency + loss history"]
+    K --> L["forecast_metric()\nEMA smoothing + dampening + confidence"]
     L --> M["Write Forecast records"]
     L --> N["detect_anomaly()\nfor both metrics"]
     N --> O["Write Anomaly if triggered"]
@@ -915,20 +915,22 @@ sequenceDiagram
 ### 7.2 End-to-End Data Lifecycle
 
 ```
-Raw SNMP Poll
- |→ Telegraf formats as JSON
-      |→ Pushed to metrics_raw Kafka topic
-           |→ Telemetry Worker consumes message
-                |→ normalize_metric() validates and cleans payload
-                     |→ Metric ORM object inserted into DB
-                          |→ Prediction Worker (on next interval):
-                               |→ Queries last 15 Metric rows per entity
-                                    |→ forecast_metric() writes Forecast row
-                                    |→ detect_anomaly() writes Anomaly row if triggered
-                                    |→ calculate_tunnel_risk() writes RiskScore row
-                                         |→ Copilot reads risk + anomaly context
-                                              |→ Correlation engine groups anomalies
-                                                   |→ Incident row created
+Raw Telemetry Stream (SNMP/NetFlow/gNMI)
+ |→ Formatted as structured JSON
+      |→ Streamed to metrics_raw Kafka topic
+           |→ Telemetry Worker consumes batch
+                |→ normalize_metric() validates and type-checks payload
+                     |→ Metric hypertable record inserted into TimescaleDB
+                          |→ Prediction Worker (scheduled cycle):
+                               |→ Queries relative metric window per entity
+                               |→ calculate_ema() filters short-term noise (alpha=0.2)
+                               |→ fit_linear_trend() computes dampened projections (+15m/+30m/+60m)
+                               |→ Mathematical confidence scoring (samples + coverage + variance)
+                               |→ detect_anomaly() writes Anomaly record if Z >= 2.5
+                               |→ calculate_tunnel_risk() & calculate_site_risk() record 0-100 scores
+                                    |→ Copilot Context Engine consumes telemetry & topology
+                                         |→ Event Correlation Engine isolates hub vs. spoke anomalies
+                                              |→ Correlated Prioritized Incident created & exported
 ```
 
 ### 7.3 Metric to Incident Lifecycle
