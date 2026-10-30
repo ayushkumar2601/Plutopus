@@ -1957,31 +1957,55 @@ Every state-modifying action or sensitive query is logged to the `audit_logs` ta
 
 ## 17. Air-Gap Architecture
 
-### 17.1 Offline Bundle & Packaging
+### 17.1 Offline Bundle & SHA256 Cryptographic Packaging
 
-For environments with strict security isolation, Plutopus is deployed using a pre-packaged offline bundle.
+For environments with strict security isolation, Plutopus is deployed using a pre-packaged, cryptographically verified offline bundle:
 
 ```
 plutopus-offline-bundle.tar.gz
 ├── docker-images/
-│   └── plutopus_images.tar         # Layered tarball of all platform services
+│   └── plutopus_images.tar         # Layered tarball of all 13 platform microservices
 ├── models/
-│   └── qwen_0.5b.bin               # Pre-downloaded local LLM model weights
+│   ├── ollama_model_qwen_0.5b.tar  # Exported Ollama model weights & manifest
+│   ├── export-model.sh             # Connected builder export utility
+│   └── import-model.sh             # Air-gap importer script
 ├── runbooks/
-│   └── *.md                        # Troubleshooting runbooks
-└── deployment/
-    └── helm/                       # Offline Kubernetes Helm chart
+│   └── *.md                        # Complete suite of 6 operational runbooks
+├── deployment/
+│   └── helm/                       # Production Kubernetes Helm chart v0.1.0
+└── checksums/
+    └── SHA256SUMS                  # Cryptographic integrity manifest for every layer
 ```
 
-- **Docker Image Packaging**: Images are built on an internet-connected host and saved to a tarball using `docker save $(docker compose config --images) -o distribution/docker-images/plutopus_images.tar`.
-- **Model Packaging**: Local LLM model files are pre-downloaded using `ollama pull` and packaged directly into the bundle's `models/` directory.
+- **Docker Image Packaging**: Images are assembled on an internet-connected build host and exported via `distribution/pack-offline-bundle.sh`.
+- **Model Packaging (`export-model.sh` & `import-model.sh`)**:
+  ```bash
+  # On connected workstation
+  ./distribution/models/export-model.sh qwen:0.5b ./models
+  # Generates: ollama_model_qwen_0.5b.tar + sha256 checksum
 
-### 17.2 AIRGAP_MODE Isolation Controls
+  # On air-gapped target host
+  ./distribution/models/import-model.sh ./models/ollama_model_qwen_0.5b.tar
+  ```
+- **Integrity Verification**: Target hosts verify the archive before extraction:
+  ```bash
+  sha256sum -c distribution/checksums/plutopus-offline-bundle.tar.gz.sha256
+  ```
 
-Setting `AIRGAP_MODE=true` in the environment activates specific isolation controls:
+### 17.2 AIRGAP_MODE Isolation Controls & Automated Verification
+
+Setting `AIRGAP_MODE=true` in the environment activates strict kernel- and application-level isolation controls:
 - Prevents the Copilot engine from executing outbound internet updates or downloading external models.
 - Disables external API telemetry syncing and remote health logging.
 - Enforces local model loading and deterministic database fallbacks.
+- **Automated Verification Script (`scripts/airgap/verify.sh`)**:
+  ```bash
+  AIRGAP_MODE=true ./scripts/airgap/verify.sh
+  ```
+  The script performs 3 validation gates and produces an audit-ready `airgap-report.md`:
+  1. Validates that `AIRGAP_MODE=true` is exported across all container environments.
+  2. Actively attempts outbound TCP/HTTP socket connections (e.g. to public DNS/NTP/repos) and asserts immediate network unreachable status.
+  3. Audits all LLM weights and vector stores to certify 100% local persistence.
 
 ### 17.3 Offline Workflows
 
