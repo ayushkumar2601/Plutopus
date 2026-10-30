@@ -1778,21 +1778,24 @@ existing = db.query(Incident).filter(
 ```
 If an active incident matching the root cause exists, the engine links the new anomalies to it and updates its timestamp, preventing duplicate alert tickets.
 
-### 13.3 Priority & Criticality Scoring
+### 13.3 Priority & Criticality Scoring Engine
 
-The `AlertPrioritizationEngine` calculates a priority score (0–100) using four weighted factors:
+The `AlertPrioritizationEngine` converts raw topological anomalies into an actionable, priority-ranked integer score $P \in [0, 100]$:
 
-| Priority Factor | Weight | Formula | Description |
-|-----------------|--------|---------|-------------|
-| **Risk Score** | 30% | `risk_score * 0.30` | Telemetry risk severity |
-| **Business Criticality** | 35% | `criticality_weight * 0.35` | Hub/Branch site importance |
-| **Urgency** | 20% | `urgency_score * 0.20` | Time to projected threshold breach |
-| **Blast Radius** | 15% | `node_score * 0.15` | Number of affected sites / devices |
+$$P = \text{round}\left( \left( 0.30 \cdot S_{\text{risk}} + 0.35 \cdot W_{\text{crit}} + 0.20 \cdot U_{\text{impact}} + 0.15 \cdot B_{\text{radius}} \right) \times C_{\text{correlation}} \right)$$
 
-- **Criticality Weights**: `low`=10, `medium`=30, `high`=60, `mission_critical`=90.
-- **Urgency (Time-to-Impact)**: $\le$ 15m = 95; $\le$ 30m = 75; $\le$ 60m = 50; other = 25.
-- **Blast Radius Node Score**: $\min(100, \text{affected\_nodes} \times 20)$.
-- **Confidence Grounding**: $\text{priority\_score} = \text{round}(\text{raw\_score} \times \text{confidence})$.
+| Component | Weight | Determination Logic | Range |
+|:---|:---|:---|:---|
+| **$S_{\text{risk}}$ (Telemetry Risk)** | 30% | Direct composite risk score from `risk_scores` table | $0 - 100$ |
+| **$W_{\text{crit}}$ (Business Criticality)** | 35% | Node tier: `mission_critical` (90), `high` (60), `medium` (30), `low` (10) | $10 - 90$ |
+| **$U_{\text{impact}}$ (Time-to-Impact)** | 20% | Predictive horizon breach: $\le 15\text{m}$ (95), $\le 30\text{m}$ (75), $\le 60\text{m}$ (50), $> 60\text{m}$ (25) | $25 - 95$ |
+| **$B_{\text{radius}}$ (Topological Blast)** | 15% | Scaled node footprint: $\min(100, N_{\text{affected}} \times 20)$ | $0 - 100$ |
+
+The raw score is then scaled by the correlation confidence $C_{\text{correlation}}$ (e.g. $0.92$ for hub cascades, $0.85$ for site isolation), preventing false alerts from overtaking confirmed critical emergencies. Final severity tiers:
+- **`critical`**: $P \ge 75$
+- **`high`**: $50 \le P < 75$
+- **`medium`**: $25 \le P < 50$
+- **`low`**: $P < 25$
 
 ---
 
