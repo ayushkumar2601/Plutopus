@@ -2333,6 +2333,12 @@ The automated test framework utilizes `pytest` and covers several layers of veri
 
 - **Unit Tests**: Test core logic isolated from network resources (e.g., verifying `fit_linear_trend()` outputs for flat trends, verifying `calculate_z_score()` against known metrics).
 - **Integration Tests**: Check route accessibility, database CRUD actions, and parameter handling using FastAPI's `TestClient` and an isolated SQL database engine context.
+- **Forecasting Validation Suite (`tests/test_forecast_v2.py`)**:
+  - Validates EMA smoothing response on noisy synthetic telemetry series.
+  - Verifies multi-horizon dampening decay ($0.8$ for 15m, $0.5$ for 30m, $0.2$ for 60m).
+  - Asserts strict clamping boundaries for latency, utilization, and packet loss metrics.
+  - Checks quantitative confidence mathematical bounds ($C \in [0.0, 1.0]$) across varying sample sizes and historical variance spreads.
+  - Verifies relative timestamp normalization ($t_{\text{rel}} = t_i - t_{\text{base}}$) preventing floating-point precision loss.
 - **Security Compliance Checks**:
   - Verify that providing a JWT secret shorter than 32 characters to `auth.py` raises a `ValueError` on startup.
   - Verify that calling write-protected endpoints with a `viewer` role JWT returns a `403 Forbidden` status code.
