@@ -1642,19 +1642,22 @@ Health status is calculated from the bottom up:
 
 ## 12. Prediction Engine
 
-### 12.1 Forecasting Algorithm
+### 12.1 Forecasting Algorithm (Dual-Engine EMA + Linear Trend)
 
-The Prediction Engine calculates the linear trend of telemetry metrics to forecast potential violations. The mathematical fit uses Ordinary Least Squares (OLS) regression:
+The Prediction Engine employs a dual-stage forecasting algorithm designed for high-jitter enterprise WAN environments:
 
-$$y = \alpha + \beta x$$
+1. **Phase 1: Exponential Moving Average (EMA) Pre-filtering**  
+   Telemetry streams frequently exhibit transient packet spikes, micro-bursts, or measurement blips. To prevent linear regression from overreacting to short-term noise, raw telemetry is first smoothed via an EMA filter with smoothing coefficient $\alpha = 0.2$:
+   $$\text{EMA}_0 = y_0$$
+   $$\text{EMA}_t = \alpha \cdot y_t + (1 - \alpha) \cdot \text{EMA}_{t-1} \quad (t \ge 1)$$
 
-Where:
-- $x$ represents timestamps (in seconds).
-- $y$ represents metric values (latency, packet loss, or utilization).
-- $\beta$ (slope) represents the rate of change per second:
-  $$\beta = \frac{\sum (x_i - \bar{x})(y_i - \bar{y})}{\sum (x_i - \bar{x})^2}$$
-- $\alpha$ (intercept) is the baseline value:
-  $$\alpha = \bar{y} - \beta \bar{x}$$
+2. **Phase 2: Normalized OLS Trend Fitting**  
+   Instead of using raw absolute epoch timestamps that can cause numerical precision degradation, timestamps are normalized relative to the most recent historical observation ($t_{\text{rel}} = t_i - t_{\text{base}}$). The linear slope $\beta$ and intercept $\alpha$ are then computed over the EMA-smoothed series:
+   $$y = \alpha + \beta \cdot t_{\text{rel}}$$
+   Where:
+   $$\beta = \frac{\sum_{i=1}^n (t_{\text{rel}, i} - \bar{t}_{\text{rel}})(\text{EMA}_i - \bar{\text{EMA}})}{\sum_{i=1}^n (t_{\text{rel}, i} - \bar{t}_{\text{rel}})^2}$$
+   $$\alpha = \bar{\text{EMA}} - \beta \cdot \bar{t}_{\text{rel}}$$
+   If fewer than 2 points are present or variance in time is zero, the model safely returns $(\text{EMA}_{\text{last}}, 0.0)$.
 
 #### Projections:
 - `forecast_15m` = $\max(0.0, \alpha + \beta \cdot (t_{\text{current}} + 900))$
