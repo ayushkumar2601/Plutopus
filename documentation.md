@@ -1659,11 +1659,21 @@ The Prediction Engine employs a dual-stage forecasting algorithm designed for hi
    $$\alpha = \bar{\text{EMA}} - \beta \cdot \bar{t}_{\text{rel}}$$
    If fewer than 2 points are present or variance in time is zero, the model safely returns $(\text{EMA}_{\text{last}}, 0.0)$.
 
-#### Projections:
-- `forecast_15m` = $\max(0.0, \alpha + \beta \cdot (t_{\text{current}} + 900))$
-- `forecast_30m` = $\max(0.0, \alpha + \beta \cdot (t_{\text{current}} + 1800))$
-- `forecast_60m` = $\max(0.0, \alpha + \beta \cdot (t_{\text{current}} + 3600))$
-- If the metric is `utilization`, the forecasted value is capped at $100.0$.
+3. **Phase 3: Multi-Horizon Trend Dampening & Boundary Clamping**  
+   Pure linear extrapolation over 30 or 60 minutes can produce absurd values (e.g. infinite latency or negative utilization). Plutopus introduces horizon-aware dampening coefficients to simulate real-world mean reversion:
+   - **15-Minute Lookahead ($+900\text{s}$)**: $\delta_{15} = \beta \cdot 900 \cdot 0.8$
+   - **30-Minute Lookahead ($+1800\text{s}$)**: $\delta_{30} = \beta \cdot 1800 \cdot 0.5$
+   - **60-Minute Lookahead ($+3600\text{s}$)**: $\delta_{60} = \beta \cdot 3600 \cdot 0.2$
+
+   Metric-specific safety clamping boundaries are strictly enforced:
+
+   | Metric | Max Increase (15m / 30m / 60m) | Max Decrease Cap | Bounds $[y_{\min}, y_{\max}]$ |
+   |:---|:---|:---|:---|
+   | **`latency`** | $+50\% / +100\% / +200\%$ of $\text{EMA}_{\text{cur}}$ | $-50\%$ of $\text{EMA}_{\text{cur}}$ | $[0.0\text{ms}, 5000.0\text{ms}]$ |
+   | **`utilization`** | $+30\% / +50\% / +80\%$ | $-30\%$ | $[0.0\%, 100.0\%]$ |
+   | **`packet_loss`** | $+10\% / +20\% / +30\%$ | $-10\%$ | $[0.0\%, 100.0\%]$ |
+
+   Final forecasts are anchored to the smoothed current level ($\hat{y}_{h} = \text{clamp}(\text{EMA}_{\text{cur}} + \Delta_h, y_{\min}, y_{\max})$).
 
 ### 12.2 Quantitative Confidence Scoring (Phase 4 Specification)
 
